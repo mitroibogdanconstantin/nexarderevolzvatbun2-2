@@ -546,9 +546,13 @@ export const auth = {
 		console.log("🔑 Sending password reset email to:", email);
 
 		try {
+			// Obținem URL-ul actual al site-ului pentru a-l folosi în link-ul de resetare
+			const siteUrl = window.location.origin;
+			console.log("🌐 Site URL for password reset:", siteUrl);
+
 			// Folosim opțiunea redirectTo pentru a specifica URL-ul de redirecționare
 			const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-				redirectTo: `${window.location.origin}/auth/reset-password`,
+				redirectTo: `${siteUrl}/auth/reset-password`,
 			});
 
 			if (error) {
