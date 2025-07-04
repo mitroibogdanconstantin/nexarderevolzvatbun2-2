@@ -19,14 +19,38 @@ const PasswordResetPage = () => {
     window.scrollTo(0, 0);
     
     // Verificăm dacă avem un token valid în URL
-    const params = new URLSearchParams(location.search);
-    const token = params.get('token');
-    const type = params.get('type');
-    
-    if (!token || type !== 'recovery') {
-      setError('Link invalid sau expirat. Te rugăm să soliciți un nou link de resetare a parolei.');
-    }
+    checkResetToken();
   }, [location]);
+
+  const checkResetToken = async () => {
+    try {
+      // Verificăm dacă avem un hash în URL (pentru resetare parolă)
+      const hash = location.hash;
+      
+      if (!hash || !hash.includes('type=recovery')) {
+        // Verificăm dacă avem parametri în query string
+        const params = new URLSearchParams(location.search);
+        const token = params.get('token');
+        const type = params.get('type');
+        
+        if (!token || type !== 'recovery') {
+          setError('Link invalid sau expirat. Te rugăm să soliciți un nou link de resetare a parolei.');
+          return;
+        }
+      }
+      
+      // Verificăm dacă avem o sesiune validă
+      const { data, error } = await supabase.auth.getSession();
+      
+      if (error || !data.session) {
+        console.error('Eroare la verificarea sesiunii:', error);
+        setError('Link invalid sau expirat. Te rugăm să soliciți un nou link de resetare a parolei.');
+      }
+    } catch (err) {
+      console.error('Eroare la verificarea token-ului:', err);
+      setError('A apărut o eroare la procesarea link-ului de resetare. Te rugăm să încerci din nou.');
+    }
+  };
 
   const validatePassword = (password: string): string => {
     if (!password) return 'Parola este obligatorie';
@@ -59,16 +83,6 @@ const PasswordResetPage = () => {
     try {
       setIsResetting(true);
       setError(null);
-      
-      // Obținem token-ul din URL
-      const params = new URLSearchParams(location.search);
-      const token = params.get('token');
-      
-      if (!token) {
-        setError('Link invalid sau expirat. Te rugăm să soliciți un nou link de resetare a parolei.');
-        setIsResetting(false);
-        return;
-      }
       
       // Resetăm parola
       const { error } = await supabase.auth.updateUser({

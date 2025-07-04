@@ -501,21 +501,35 @@ const CreateListingPage = () => {
 			console.log("🔐 authUser.user.id înainte de inserție:", authUser.user.id);
 			console.log("🔎 seller_id TRIMIS (corectat):", listingData.seller_id);
 
-			const result = await listings.create(listingData, imageFiles);
-			console.log("📬 Răspuns complet listings.create:", result);
+			// Adăugăm un timeout pentru a evita problemele de sincronizare pe Samsung Internet
+			setTimeout(async () => {
+				try {
+					const result = await listings.create(listingData, imageFiles);
+					console.log("📬 Răspuns complet listings.create:", result);
 
-			const { data, error } = result;
-			console.log("📬 Răspuns de la server:", data, error);
+					const { data, error } = result;
+					console.log("📬 Răspuns de la server:", data, error);
 
-			if (error) {
-				console.error("❌ Error creating listing:", error);
-				throw new Error(error.message || "Eroare la crearea anunțului");
-			}
+					if (error) {
+						console.error("❌ Error creating listing:", error);
+						throw new Error(error.message || "Eroare la crearea anunțului");
+					}
 
-			console.log("✅ Listing created successfully:", data);
+					console.log("✅ Listing created successfully:", data);
 
-			setCreatedListingId(data.id);
-			setShowSuccessModal(true);
+					setCreatedListingId(data.id);
+					setShowSuccessModal(true);
+					setIsSubmitting(false);
+				} catch (innerError: any) {
+					console.error("💥 Error in timeout callback:", innerError);
+					setErrors({
+						submit:
+							innerError.message ||
+							"A apărut o eroare la publicarea anunțului. Te rog încearcă din nou.",
+					});
+					setIsSubmitting(false);
+				}
+			}, 500); // Adăugăm un delay de 500ms pentru a permite browser-ului să proceseze cererea
 		} catch (error: any) {
 			console.error("💥 Error creating listing:", error);
 			setErrors({
@@ -523,7 +537,6 @@ const CreateListingPage = () => {
 					error.message ||
 					"A apărut o eroare la publicarea anunțului. Te rog încearcă din nou.",
 			});
-		} finally {
 			setIsSubmitting(false);
 		}
 	};
