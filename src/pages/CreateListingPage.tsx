@@ -504,19 +504,62 @@ const CreateListingPage = () => {
 			// Adăugăm un timeout pentru a evita problemele de sincronizare pe Samsung Internet
 			setTimeout(async () => {
 				try {
-					const result = await listings.create(listingData, imageFiles);
-					console.log("📬 Răspuns complet listings.create:", result);
-
-					const { data, error } = result;
-					console.log("📬 Răspuns de la server:", data, error);
-
+					// Folosim o abordare mai robustă pentru Samsung Internet
+					// Creăm direct anunțul în baza de date fără a folosi funcția listings.create
+					// Acest lucru evită unele probleme de compatibilitate cu Samsung Internet
+					
+					// 1. Mai întâi încărcăm imaginile
+					const imageUrls: string[] = [];
+					
+					if (imageFiles && imageFiles.length > 0) {
+						for (const image of imageFiles) {
+							try {
+								const fileExt = image.name.split(".").pop();
+								const fileName = `${uuidv4()}.${fileExt}`;
+								const filePath = `${userProfile.id}/${fileName}`;
+								
+								const { error: uploadError, data: uploadData } = await supabase.storage
+									.from("listing-images")
+									.upload(filePath, image, {
+										cacheControl: "3600",
+										upsert: false,
+									});
+									
+								if (uploadError) {
+									console.error("❌ Error uploading image:", uploadError);
+									continue;
+								}
+								
+								const { data: { publicUrl } } = supabase.storage
+									.from("listing-images")
+									.getPublicUrl(filePath);
+									
+								imageUrls.push(publicUrl);
+							} catch (imgError) {
+								console.error("❌ Error processing image:", imgError);
+							}
+						}
+					}
+					
+					// 2. Apoi creăm anunțul cu URL-urile imaginilor
+					const finalListingData = {
+						...listingData,
+						images: imageUrls,
+					};
+					
+					const { data, error } = await supabase
+						.from("listings")
+						.insert([finalListingData])
+						.select()
+						.single();
+						
 					if (error) {
 						console.error("❌ Error creating listing:", error);
 						throw new Error(error.message || "Eroare la crearea anunțului");
 					}
-
+					
 					console.log("✅ Listing created successfully:", data);
-
+					
 					setCreatedListingId(data.id);
 					setShowSuccessModal(true);
 					setIsSubmitting(false);
